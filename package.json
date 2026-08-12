@@ -1,0 +1,31 @@
+{
+  "name": "epic7-hub",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node backend/src/server.js",
+    "dev": "nodemon backend/src/server.js",
+    "test": "node --test backend/tests/*.test.js",
+    "sync": "node backend/scripts/full-sync.js",
+    "sync:heroes": "node backend/scripts/sync-heroes.js",
+    "sync:artifacts": "node backend/scripts/sync-artifacts.js"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.19.0",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mysql2": "^3.23.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
+  }
+}

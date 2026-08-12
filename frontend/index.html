@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Epic7 Personal DB - Hero & Artifact Catalog</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Header & Navigation -->
+  <header>
+    <a href="#" class="logo">
+      <span>⚔️ EPIC7 HUB</span>
+      <span class="logo-badge">Personal DB</span>
+    </a>
+
+    <ul class="nav-links">
+      <li><button class="nav-btn active" data-tab="heroes">👤 Heroes</button></li>
+      <li><button class="nav-btn" data-tab="artifacts">💎 Artifacts</button></li>
+      <li><button class="nav-btn" data-tab="tierlist">🏆 Tier List</button></li>
+      <li><button class="nav-btn" data-tab="compare">⚔️ Compare</button></li>
+      <li><button class="nav-btn" data-tab="stats">📊 Stats</button></li>
+      <li><button class="nav-btn" data-tab="backup">💾 Backup</button></li>
+    </ul>
+
+    <div class="search-wrapper">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="global-search" class="search-input" placeholder="Search hero, artifact...">
+      <span class="hotkey-tag">Ctrl+K</span>
+    </div>
+  </header>
+
+  <!-- Main Body Container -->
+  <main>
+
+    <!-- Stats Dashboard Section -->
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">⚔️</div>
+        <div>
+          <div class="stat-val" id="stat-total-heroes">0</div>
+          <div class="stat-label">Total Heroes</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💎</div>
+        <div>
+          <div class="stat-val" id="stat-total-artifacts">0</div>
+          <div class="stat-label">Total Artifacts</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dynamic Section Container -->
+    <section id="tab-content">
+
+      <!-- Filters Bar -->
+      <div class="filters-bar" id="filters-bar">
+        <div class="filter-group" id="element-filters">
+          <span class="filter-label">Element:</span>
+          <button class="filter-chip active" data-filter-type="element" data-val="">All</button>
+          <button class="filter-chip" data-filter-type="element" data-val="Fire">Fire</button>
+          <button class="filter-chip" data-filter-type="element" data-val="Ice">Ice</button>
+          <button class="filter-chip" data-filter-type="element" data-val="Earth">Earth</button>
+          <button class="filter-chip" data-filter-type="element" data-val="Light">Light</button>
+          <button class="filter-chip" data-filter-type="element" data-val="Dark">Dark</button>
+        </div>
+
+        <div class="filter-group" id="class-filters">
+          <span class="filter-label">Class:</span>
+          <button class="filter-chip active" data-filter-type="class" data-val="">All</button>
+          <button class="filter-chip" data-filter-type="class" data-val="Warrior">Warrior</button>
+          <button class="filter-chip" data-filter-type="class" data-val="Knight">Knight</button>
+          <button class="filter-chip" data-filter-type="class" data-val="Thief">Thief</button>
+          <button class="filter-chip" data-filter-type="class" data-val="Ranger">Ranger</button>
+          <button class="filter-chip" data-filter-type="class" data-val="Mage">Mage</button>
+          <button class="filter-chip" data-filter-type="class" data-val="Soul Weaver">Soul Weaver</button>
+          <button class="filter-chip" data-filter-type="class" data-val="Common" id="filter-chip-common" style="display:none;">Common</button>
+        </div>
+
+        <div class="filter-group" id="rarity-filters">
+          <span class="filter-label">Rarity:</span>
+          <button class="filter-chip active" data-filter-type="rarity" data-val="">All</button>
+          <button class="filter-chip" data-filter-type="rarity" data-val="5">5★</button>
+          <button class="filter-chip" data-filter-type="rarity" data-val="4">4★</button>
+          <button class="filter-chip" data-filter-type="rarity" data-val="3">3★</button>
+        </div>
+      </div>
+
+      <!-- Main Cards Grid View -->
+      <div class="cards-grid" id="main-grid">
+        <!-- Injected via JavaScript -->
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Hero & Artifact Detail Modal -->
+  <div class="modal-overlay" id="detail-modal">
+    <div class="modal-container">
+      <button class="modal-close" id="modal-close-btn">&times;</button>
+      <div id="modal-content">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
