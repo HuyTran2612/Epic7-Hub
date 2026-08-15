@@ -287,9 +287,9 @@ function mergeHero(key, sourceA, sourceB, e7Stats, fribbelsData, codexArt) {
 
 function mergeArtifact(key, sourceA, sourceB, fribbelsArtMap, codexArt) {
   const name = sourceB?.name || sourceA?.name || key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  const rarity = sourceB?.rarity || sourceA?.rarity || 5;
-
   const fribbelsMatch = fribbelsArtMap ? fribbelsArtMap.get(name.toLowerCase()) : null;
+  const rarity = fribbelsMatch?.rarity || sourceB?.rarity || sourceA?.rarity || 5;
+
   let classRestriction = 'Common';
   if (fribbelsMatch && fribbelsMatch.class_restriction && fribbelsMatch.class_restriction !== 'Common') {
     classRestriction = fribbelsMatch.class_restriction;
@@ -537,7 +537,7 @@ async function syncArtifactsStage(limit = 0) {
         sourceBMap.set(cleanKey, {
           key_name: cleanKey,
           name: item.name,
-          rarity: 5,
+          rarity: fbArt ? fbArt.rarity : 5,
           class_restriction,
           base_stats: fbArt ? fbArt.base_stats : { atk: 15, hp: 60 },
           max_stats: { atk: 273, hp: 1080 },
