@@ -12,6 +12,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const pool = require('../src/config/db');
 const { fetchFribbelsData, fetchE7DataStats } = require('./fribbels-e7data-provider');
+const { getArtifactClassRestriction } = require('./artifact-class-registry');
 
 const OFFICIAL_HERO_URL = 'https://static.smilegatemegaport.com/gameRecord/epic7/epic7_hero.json';
 const OFFICIAL_ARTIFACT_URL = 'https://static.smilegatemegaport.com/gameRecord/epic7/epic7_artifact.json';
@@ -125,14 +126,7 @@ function parseArtifactPage(html, urlKey) {
   const rarity = starMatch ? parseInt(starMatch[1], 10) : 5;
 
   const classText = `${metaDesc} ${$('body').text()}`;
-  const classes = ['Warrior', 'Knight', 'Thief', 'Ranger', 'Mage', 'Soul Weaver'];
-  let class_restriction = 'Common';
-  for (const c of classes) {
-    if (classText.toLowerCase().includes(`${c.toLowerCase()} artifact`) || classText.toLowerCase().includes(`${c.toLowerCase()} exclusive`) || classText.toLowerCase().includes(`${c.toLowerCase()} only`)) {
-      class_restriction = c;
-      break;
-    }
-  }
+  const class_restriction = getArtifactClassRestriction(key_name, classText);
 
   const artImg = $('img[src*="/images/artifacts/"]').first().attr('src');
   const image_url = artImg ? (artImg.startsWith('http') ? artImg : `https://epic7db.com${artImg}`) : `https://epic7db.com/images/artifacts/${key_name}.webp`;
@@ -201,7 +195,7 @@ async function syncHeroesStage(limit = 0) {
   // Backup dataset mapping
   let sourceBMap = new Map();
   try {
-    const backupRes = await axios.get(OFFICIAL_HERO_URL, { timeout: 8000 });
+    const backupRes = await axios.get(OFFICIAL_HERO_URL, { family: 4, timeout: 8000 });
     const heroList = backupRes.data.zh || backupRes.data.en || backupRes.data.ko || backupRes.data || [];
     const jobMap = { warrior: 'Warrior', knight: 'Knight', thief: 'Thief', ranger: 'Ranger', mage: 'Mage', soulweaver: 'Soul Weaver' };
     const elemMap = { fire: 'Fire', ice: 'Ice', wind: 'Earth', light: 'Light', dark: 'Dark' };
@@ -336,7 +330,7 @@ async function syncArtifactsStage(limit = 0) {
 
   let sourceBMap = new Map();
   try {
-    const backupRes = await axios.get(OFFICIAL_ARTIFACT_URL, { timeout: 8000 });
+    const backupRes = await axios.get(OFFICIAL_ARTIFACT_URL, { family: 4, timeout: 8000 });
     const artList = backupRes.data.zh || backupRes.data.en || backupRes.data.ko || backupRes.data || [];
     artList.forEach(item => {
       const artName = item.name || item.code;
@@ -347,7 +341,7 @@ async function syncArtifactsStage(limit = 0) {
           key_name: cleanKey,
           name: item.name,
           rarity: 5,
-          class_restriction: 'Common',
+          class_restriction: getArtifactClassRestriction(cleanKey),
           base_stats: { atk: 15, hp: 60 },
           max_stats: { atk: 273, hp: 1080 },
           skill_description: `${item.name} is an artifact in Epic Seven.`,
