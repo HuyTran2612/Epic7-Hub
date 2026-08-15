@@ -8,6 +8,7 @@ const notesRoutes = require('./routes/notes');
 const tierlistRoutes = require('./routes/tierlist');
 const statsRoutes = require('./routes/stats');
 const backupRoutes = require('./routes/backup');
+const syncRoutes = require('./routes/sync');
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/api/notes', notesRoutes);
 app.use('/api/tierlist', tierlistRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/sync', syncRoutes);
 
 // 404 Handler
 app.use((req, res, next) => {

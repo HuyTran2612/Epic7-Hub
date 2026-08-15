@@ -94,3 +94,40 @@ export async function importBackup(backupData) {
   return res.json();
 }
 
+export async function fetchSyncStatus() {
+  const res = await fetch(`${API_BASE}/sync/status`);
+  return res.json();
+}
+
+export async function triggerSync(limit = 0) {
+  const res = await fetch(`${API_BASE}/sync/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ limit })
+  });
+  return res.json();
+}
+
+export async function fetchSyncConflicts() {
+  const res = await fetch(`${API_BASE}/sync/conflicts`);
+  return res.json();
+}
+
+export async function updateHero(id, heroData) {
+  const res = await fetch(`${API_BASE}/heroes/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(heroData)
+  });
+  return res.json();
+}
+
+export async function updateArtifact(id, artifactData) {
+  const res = await fetch(`${API_BASE}/artifacts/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(artifactData)
+  });
+  return res.json();
+}
+

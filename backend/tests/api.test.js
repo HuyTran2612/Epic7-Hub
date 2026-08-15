@@ -159,4 +159,40 @@ describe('Phase 5 - Advanced Personal Features & Tier List APIs', () => {
     assert.ok(limArts.length >= 25, `Expected at least 25 limited artifacts, got: ${limArts.length}`);
   });
 
+  test('GET /api/sync/status & GET /api/sync/conflicts', async () => {
+    const statusRes = await request.get('/api/sync/status');
+    assert.equal(statusRes.status, 200);
+    assert.equal(statusRes.body.success, true);
+    assert.ok(statusRes.body.data.status);
+
+    const conflictsRes = await request.get('/api/sync/conflicts');
+    assert.equal(conflictsRes.status, 200);
+    assert.equal(conflictsRes.body.success, true);
+    assert.ok(Array.isArray(conflictsRes.body.data));
+  });
+
+  test('PUT /api/heroes/:id & PUT /api/artifacts/:id - Parameter Update APIs', async () => {
+    const [heroRows] = await pool.query('SELECT id, name FROM heroes LIMIT 1');
+    assert.ok(heroRows.length > 0);
+    const heroId = heroRows[0].id;
+
+    const heroRes = await request.put(`/api/heroes/${heroId}`).send({
+      description: 'Updated description test'
+    });
+    assert.equal(heroRes.status, 200);
+    assert.equal(heroRes.body.success, true);
+    assert.equal(heroRes.body.data.description, 'Updated description test');
+
+    const [artRows] = await pool.query('SELECT id, name FROM artifacts LIMIT 1');
+    assert.ok(artRows.length > 0);
+    const artId = artRows[0].id;
+
+    const artRes = await request.put(`/api/artifacts/${artId}`).send({
+      skill_description: 'Updated skill description test'
+    });
+    assert.equal(artRes.status, 200);
+    assert.equal(artRes.body.success, true);
+    assert.equal(artRes.body.data.skill_description, 'Updated skill description test');
+  });
+
 });

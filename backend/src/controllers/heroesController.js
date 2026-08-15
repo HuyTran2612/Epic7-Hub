@@ -95,3 +95,34 @@ exports.getHeroRecommendations = async (req, res, next) => {
     next(error);
   }
 };
+
+// PUT /api/heroes/:id - Update Hero parameters
+exports.updateHero = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, element, class: heroClass, rarity, is_limited, description } = req.body;
+
+    const [existing] = await pool.query('SELECT id FROM heroes WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Hero not found' });
+    }
+
+    await pool.query(
+      `UPDATE heroes SET
+        name = COALESCE(?, name),
+        element = COALESCE(?, element),
+        class = COALESCE(?, class),
+        rarity = COALESCE(?, rarity),
+        is_limited = COALESCE(?, is_limited),
+        description = COALESCE(?, description),
+        updated_at = NOW()
+       WHERE id = ?`,
+      [name, element, heroClass, rarity !== undefined ? parseInt(rarity, 10) : null, is_limited !== undefined ? (is_limited ? 1 : 0) : null, description, id]
+    );
+
+    const [updated] = await pool.query('SELECT * FROM heroes WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Hero updated successfully', data: updated[0] });
+  } catch (error) {
+    next(error);
+  }
+};

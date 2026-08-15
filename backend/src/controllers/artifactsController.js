@@ -67,3 +67,33 @@ exports.getArtifactByKey = async (req, res, next) => {
     next(error);
   }
 };
+
+// PUT /api/artifacts/:id - Update Artifact parameters
+exports.updateArtifact = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, rarity, is_limited, class_restriction, skill_description } = req.body;
+
+    const [existing] = await pool.query('SELECT id FROM artifacts WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Artifact not found' });
+    }
+
+    await pool.query(
+      `UPDATE artifacts SET
+        name = COALESCE(?, name),
+        rarity = COALESCE(?, rarity),
+        is_limited = COALESCE(?, is_limited),
+        class_restriction = COALESCE(?, class_restriction),
+        skill_description = COALESCE(?, skill_description),
+        updated_at = NOW()
+       WHERE id = ?`,
+      [name, rarity !== undefined ? parseInt(rarity, 10) : null, is_limited !== undefined ? (is_limited ? 1 : 0) : null, class_restriction, skill_description, id]
+    );
+
+    const [updated] = await pool.query('SELECT * FROM artifacts WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Artifact updated successfully', data: updated[0] });
+  } catch (error) {
+    next(error);
+  }
+};
