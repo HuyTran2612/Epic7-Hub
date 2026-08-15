@@ -21,12 +21,14 @@ CREATE TABLE heroes (
   exclusive_equipment JSON,
   recommended_builds JSON,
   image_url VARCHAR(500),
+  full_artwork_url VARCHAR(500),
   description TEXT,
   last_synced_at DATETIME,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_heroes_element_class (element, class),
   INDEX idx_heroes_rarity (rarity),
+  INDEX idx_heroes_limited (is_limited),
   INDEX idx_heroes_key (key_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -36,6 +38,7 @@ CREATE TABLE artifacts (
   key_name VARCHAR(100) UNIQUE NOT NULL,
   name VARCHAR(150) NOT NULL,
   rarity TINYINT NOT NULL,
+  is_limited BOOLEAN DEFAULT FALSE,
   class_restriction VARCHAR(50) DEFAULT 'Common',
   base_stats JSON,
   max_stats JSON,
@@ -43,10 +46,12 @@ CREATE TABLE artifacts (
   skill_max_description TEXT,
   recommended_heroes JSON,
   image_url VARCHAR(500),
+  full_artwork_url VARCHAR(500),
   last_synced_at DATETIME,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_artifacts_rarity_class (rarity, class_restriction),
+  INDEX idx_artifacts_limited (is_limited),
   INDEX idx_artifacts_key (key_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

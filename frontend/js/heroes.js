@@ -22,7 +22,7 @@ export async function renderHeroesSection(container, filters = {}) {
         <div class="item-card" data-key="${hero.key_name}">
           <div class="card-img-container">
             <div class="card-avatar-frame ${borderClass}">
-              <img src="${hero.image_url}" alt="${hero.name}" onerror="this.src='https://epic7db.com/images/heroes/${hero.key_name}.webp'" loading="lazy">
+              <img src="${hero.image_url}" alt="${hero.name}" onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='https://epic7db.com/images/heroes/${hero.key_name}.webp';}else{this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2296%22 height=%2296%22 viewBox=%220 0 96 96%22><rect width=%2296%22 height=%2296%22 fill=%22%231a2332%22/><text x=%2248%22 y=%2254%22 fill=%22%238899a6%22 font-size=%2228%22 text-anchor=%22middle%22>⚔️</text></svg>';}" loading="lazy">
             </div>
             <div class="card-overlay-top">
               <span class="badge ${elementClass}">${hero.element}</span>

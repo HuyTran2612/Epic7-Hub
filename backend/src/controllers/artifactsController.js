@@ -3,9 +3,9 @@ const pool = require('../config/db');
 // GET /api/artifacts - List + Filter + Search + Pagination
 exports.getArtifacts = async (req, res, next) => {
   try {
-    const { rarity, class_restriction, search, page = 1, limit = 20 } = req.query;
+    const { rarity, class_restriction, is_limited, search, page = 1, limit = 20 } = req.query;
 
-    let query = 'SELECT id, key_name, name, rarity, class_restriction, image_url, updated_at FROM artifacts WHERE 1=1';
+    let query = 'SELECT id, key_name, name, rarity, is_limited, class_restriction, image_url, updated_at FROM artifacts WHERE 1=1';
     const params = [];
 
     if (rarity) {
@@ -16,12 +16,15 @@ exports.getArtifacts = async (req, res, next) => {
       query += ' AND class_restriction = ?';
       params.push(class_restriction);
     }
+    if (is_limited === 'true' || is_limited === '1') {
+      query += ' AND is_limited = TRUE';
+    }
     if (search) {
       query += ' AND (name LIKE ? OR key_name LIKE ?)';
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    const countQuery = query.replace('SELECT id, key_name, name, rarity, class_restriction, image_url, updated_at', 'SELECT COUNT(*) as total');
+    const countQuery = query.replace('SELECT id, key_name, name, rarity, is_limited, class_restriction, image_url, updated_at', 'SELECT COUNT(*) as total');
     const [countRows] = await pool.query(countQuery, params);
     const total = countRows[0].total;
 

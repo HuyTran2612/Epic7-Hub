@@ -87,12 +87,12 @@ FROM heroes h, artifacts a
 WHERE h.key_name = 'brieg' AND a.key_name = 'daydream-joker';
 
 -- Seed User Notes
-INSERT INTO user_notes (target_type, target_id, note, personal_tier, priority)
-SELECT 'hero', id, 'Core cleaver for Arena and Dog Walking', 'S', 10
+INSERT INTO user_notes (target_type, target_id, note, personal_tier, category, priority)
+SELECT 'hero', id, 'Core cleaver for Arena and Dog Walking', 'S', 'general', 10
 FROM heroes WHERE key_name = 'arbiter-vildred';
 
-INSERT INTO user_notes (target_type, target_id, note, personal_tier, priority)
-SELECT 'hero', id, 'PVE Queen for Abyss and Raid', 'S', 9
+INSERT INTO user_notes (target_type, target_id, note, personal_tier, category, priority)
+SELECT 'hero', id, 'PVE Queen for Abyss and Raid', 'S', 'pve', 9
 FROM heroes WHERE key_name = 'tamarinne';
 
 -- Seed Sync Log

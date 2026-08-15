@@ -22,13 +22,14 @@ export async function openArtifactModal(keyName) {
     modalContent.innerHTML = `
       <div class="modal-header">
         <div class="card-avatar-frame artifact-frame" style="width:110px; height:110px; flex-shrink:0; padding:3px;">
-          <img src="${art.image_url}" alt="${art.name}" onerror="this.src='https://epic7db.com/images/artifacts/${art.key_name}.webp'">
+          <img src="${art.image_url}" alt="${art.name}" onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='https://epic7db.com/images/artifacts/${art.key_name}.webp';}else{this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2296%22 height=%2296%22 viewBox=%220 0 96 96%22><rect width=%2296%22 height=%2296%22 fill=%22%231a2332%22/><text x=%2248%22 y=%2254%22 fill=%22%238899a6%22 font-size=%2228%22 text-anchor=%22middle%22>💎</text></svg>';}">
         </div>
         <div>
           <h2 style="font-family: var(--font-heading); font-size: 1.8rem; color:#fff;">${art.name}</h2>
-          <div style="display:flex; gap:0.5rem; margin: 0.5rem 0;">
+          <div style="display:flex; gap:0.5rem; margin: 0.5rem 0; align-items:center;">
             <span class="badge" style="background:rgba(255,255,255,0.1); color:#fff;">Class: ${art.class_restriction || 'Common'}</span>
             <span class="stars">${'★'.repeat(art.rarity)}</span>
+            ${art.is_limited ? '<span class="badge" style="background:#ff9800; color:#000; font-weight:800;">LIMITED</span>' : ''}
           </div>
         </div>
       </div>
@@ -69,6 +70,15 @@ export async function openArtifactModal(keyName) {
           <div style="font-size:0.85rem; color:#fff; margin-top:0.25rem;">${art.skill_max_description || art.skill_description || 'No description'}</div>
         </div>
       </div>
+
+      <!-- High-Res Artifact Illustration Archive -->
+      ${art.full_artwork_url ? `
+        <h3 style="font-family:var(--font-heading); color:#fff; margin:1.5rem 0 0.5rem 0;">🎨 E7 Codex Full HD Illustration</h3>
+        <div style="background:rgba(0,0,0,0.4); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; text-align:center;">
+          <img src="${art.full_artwork_url}" alt="${art.name} Full Illustration" style="max-height:380px; max-width:100%; object-fit:contain; border-radius:var(--radius-sm); filter:drop-shadow(0 10px 25px rgba(0,0,0,0.9));" onerror="this.parentElement.style.display='none';">
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">Source: <a href="https://e7codex.com" target="_blank" rel="noopener" style="color:var(--text-accent);">E7 Codex Archive</a></div>
+        </div>
+      ` : ''}
 
       <div class="notes-section" style="margin-top:1.5rem;">
         <h4 style="color:#fff; font-family:var(--font-heading);">Personal Notes</h4>
@@ -117,13 +127,14 @@ export async function renderArtifactDetailView(container, artifactKey, onBack) {
       <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:2rem;">
         <div class="modal-header">
           <div class="card-avatar-frame artifact-frame" style="width:110px; height:110px; flex-shrink:0; padding:3px;">
-            <img src="${art.image_url}" alt="${art.name}" onerror="this.src='https://epic7db.com/images/artifacts/${art.key_name}.webp'">
+            <img src="${art.image_url}" alt="${art.name}" onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='https://epic7db.com/images/artifacts/${art.key_name}.webp';}else{this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2296%22 height=%2296%22 viewBox=%220 0 96 96%22><rect width=%2296%22 height=%2296%22 fill=%22%231a2332%22/><text x=%2248%22 y=%2254%22 fill=%22%238899a6%22 font-size=%2228%22 text-anchor=%22middle%22>💎</text></svg>';}">
           </div>
           <div>
             <h1 style="font-family: var(--font-heading); font-size: 2.2rem; color:#fff;">${art.name}</h1>
             <div style="display:flex; gap:0.5rem; margin: 0.75rem 0; align-items:center;">
               <span class="badge" style="background:rgba(255,255,255,0.1); color:#fff; font-size:0.9rem;">Class: ${art.class_restriction || 'Common'}</span>
               <span class="stars" style="font-size:1.2rem;">${'★'.repeat(art.rarity)}</span>
+              ${art.is_limited ? '<span class="badge" style="background:#ff9800; color:#000; font-weight:800;">LIMITED</span>' : ''}
             </div>
           </div>
         </div>
@@ -164,6 +175,15 @@ export async function renderArtifactDetailView(container, artifactKey, onBack) {
             <div style="font-size:0.95rem; color:#fff; margin-top:0.4rem; line-height:1.5;">${art.skill_max_description || art.skill_description || 'No description available'}</div>
           </div>
         </div>
+
+        <!-- High-Res Artifact Illustration Archive -->
+        ${art.full_artwork_url ? `
+          <h3 style="font-family:var(--font-heading); color:#fff; margin:2rem 0 0.75rem 0;">🎨 E7 Codex Full HD Illustration</h3>
+          <div style="background:rgba(0,0,0,0.4); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1.25rem; text-align:center;">
+            <img src="${art.full_artwork_url}" alt="${art.name} Full Illustration" style="max-height:450px; max-width:100%; object-fit:contain; border-radius:var(--radius-md); filter:drop-shadow(0 10px 25px rgba(0,0,0,0.9));" onerror="this.parentElement.style.display='none';">
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">High-Resolution Asset Source: <a href="https://e7codex.com" target="_blank" rel="noopener" style="color:var(--text-accent);">E7 Codex Archive</a></div>
+          </div>
+        ` : ''}
 
         <!-- Personal Notes -->
         <div class="notes-section" style="margin-top:2rem;">

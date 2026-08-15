@@ -1,8 +1,8 @@
 {
   "name": "epic7-hub",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Epic7-Hub Personal Database & Analytics System",
+  "main": "backend/src/server.js",
   "directories": {
     "doc": "docs"
   },
@@ -10,9 +10,7 @@
     "start": "node backend/src/server.js",
     "dev": "nodemon backend/src/server.js",
     "test": "node --test backend/tests/*.test.js",
-    "sync": "node backend/scripts/full-sync.js",
-    "sync:heroes": "node backend/scripts/sync-heroes.js",
-    "sync:artifacts": "node backend/scripts/sync-artifacts.js"
+    "sync": "node backend/scripts/sync.js"
   },
   "keywords": [],
   "type": "commonjs",

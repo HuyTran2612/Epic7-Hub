@@ -32,7 +32,7 @@ export async function openHeroModal(keyName) {
     modalContent.innerHTML = `
       <div class="modal-header">
         <div class="card-avatar-frame element-border-${hero.element.toLowerCase()}" style="width:110px; height:110px; flex-shrink:0; padding:3px;">
-          <img src="${hero.image_url}" alt="${hero.name}" onerror="this.src='https://epic7db.com/images/heroes/${hero.key_name}.webp'">
+          <img src="${hero.image_url}" alt="${hero.name}" onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='https://epic7db.com/images/heroes/${hero.key_name}.webp';}else{this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2296%22 height=%2296%22 viewBox=%220 0 96 96%22><rect width=%2296%22 height=%2296%22 fill=%22%231a2332%22/><text x=%2248%22 y=%2254%22 fill=%22%238899a6%22 font-size=%2228%22 text-anchor=%22middle%22>⚔️</text></svg>';}">
         </div>
         <div>
           <h2 style="font-family: var(--font-heading); font-size: 1.8rem; color:#fff;">${hero.name}</h2>
@@ -120,6 +120,15 @@ export async function openHeroModal(keyName) {
         </div>
       ` : ''}
 
+      <!-- High-Res Full Body Artwork Archive -->
+      ${hero.full_artwork_url ? `
+        <h3 style="font-family:var(--font-heading); color:#fff; margin:1.5rem 0 0.5rem 0;">🎨 E7 Codex Full HD Pose Artwork</h3>
+        <div style="background:rgba(0,0,0,0.4); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; text-align:center;">
+          <img src="${hero.full_artwork_url}" alt="${hero.name} Full Artwork" style="max-height:420px; max-width:100%; object-fit:contain; border-radius:var(--radius-sm); filter:drop-shadow(0 10px 25px rgba(0,0,0,0.9));" onerror="this.parentElement.style.display='none';">
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">Source: <a href="https://e7codex.com" target="_blank" rel="noopener" style="color:var(--text-accent);">E7 Codex Archive</a></div>
+        </div>
+      ` : ''}
+
       <!-- Personal Notes -->
       <div class="notes-section" style="margin-top:1.5rem;">
         <h4 style="color:#fff; font-family:var(--font-heading);">Personal Notes & Tier</h4>
@@ -192,7 +201,7 @@ export async function renderHeroDetailView(container, heroKey, onBack) {
       <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:2rem;">
         <div class="modal-header">
           <div class="card-avatar-frame element-border-${hero.element.toLowerCase()}" style="width:110px; height:110px; flex-shrink:0; padding:3px;">
-            <img src="${hero.image_url}" alt="${hero.name}" onerror="this.src='https://epic7db.com/images/heroes/${hero.key_name}.webp'">
+            <img src="${hero.image_url}" alt="${hero.name}" onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='https://epic7db.com/images/heroes/${hero.key_name}.webp';}else{this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2296%22 height=%2296%22 viewBox=%220 0 96 96%22><rect width=%2296%22 height=%2296%22 fill=%22%231a2332%22/><text x=%2248%22 y=%2254%22 fill=%22%238899a6%22 font-size=%2228%22 text-anchor=%22middle%22>⚔️</text></svg>';}">
           </div>
           <div>
             <h1 style="font-family: var(--font-heading); font-size: 2.2rem; color:#fff;">${hero.name}</h1>
@@ -278,6 +287,15 @@ export async function renderHeroDetailView(container, heroKey, onBack) {
                 ${r.note ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">${r.note}</div>` : ''}
               </div>
             `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- High-Res Full Body Artwork Archive -->
+        ${hero.full_artwork_url ? `
+          <h3 style="font-family:var(--font-heading); color:#fff; margin:2rem 0 0.75rem 0;">🎨 E7 Codex Full HD Pose Artwork</h3>
+          <div style="background:rgba(0,0,0,0.4); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1.25rem; text-align:center;">
+            <img src="${hero.full_artwork_url}" alt="${hero.name} Full Artwork" style="max-height:500px; max-width:100%; object-fit:contain; border-radius:var(--radius-md); filter:drop-shadow(0 10px 25px rgba(0,0,0,0.9));" onerror="this.parentElement.style.display='none';">
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">High-Resolution Asset Source: <a href="https://e7codex.com" target="_blank" rel="noopener" style="color:var(--text-accent);">E7 Codex Archive</a></div>
           </div>
         ` : ''}
 

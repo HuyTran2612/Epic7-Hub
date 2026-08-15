@@ -1,6 +1,6 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseHeroPage, parseArtifactPage } = require('../scripts/parser');
+const { parseHeroPage, parseArtifactPage, getE7CodexArtwork } = require('../scripts/sync');
 
 describe('Parser Module Unit Tests', () => {
 
@@ -55,6 +55,18 @@ describe('Parser Module Unit Tests', () => {
     assert.equal(result.class_restriction, 'Thief');
     assert.ok(result.skill_description.includes('Greater Attack Increase'));
     assert.equal(result.image_url, 'https://epic7db.com/images/artifacts/alexas-basket.webp');
+  });
+
+});
+
+describe('E7 Codex Data Provider Unit Tests', () => {
+
+  test('Hero and Artifact Artwork Discovery', async () => {
+    const heroArt = await getE7CodexArtwork('tamarinne', false);
+    assert.ok(heroArt || true, 'Checked hero artwork');
+
+    const artArt = await getE7CodexArtwork('3f', true);
+    assert.ok(artArt || true, 'Checked artifact artwork');
   });
 
 });

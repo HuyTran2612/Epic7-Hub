@@ -64,7 +64,7 @@ export async function renderTierListView(container, category = currentTierCatego
                   return `
                     <div class="tier-hero-card" draggable="true" data-hero-id="${hero.id}" data-key="${hero.key_name}" data-hero-name="${hero.name}" style="display:flex; flex-direction:column; align-items:center; width:72px; text-align:center; position:relative;">
                       <div class="card-avatar-frame ${borderClass}" style="width:58px; height:58px; padding:2px;">
-                        <img src="${hero.image_url}" alt="${hero.name}" onerror="this.src='https://epic7db.com/images/heroes/${hero.key_name}.webp'" loading="lazy">
+                        <img src="${hero.image_url}" alt="${hero.name}" onerror="if(!this.dataset.tried){this.dataset.tried='1';this.src='https://epic7db.com/images/heroes/${hero.key_name}.webp';}else{this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2296%22 height=%2296%22 viewBox=%220 0 96 96%22><rect width=%2296%22 height=%2296%22 fill=%22%231a2332%22/><text x=%2248%22 y=%2254%22 fill=%22%238899a6%22 font-size=%2228%22 text-anchor=%22middle%22>⚔️</text></svg>';}" loading="lazy">
                       </div>
                       <span style="font-size:0.75rem; font-weight:600; color:#fff; margin-top:0.3rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;">${hero.name}</span>
 

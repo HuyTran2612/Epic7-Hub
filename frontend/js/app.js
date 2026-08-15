@@ -6,7 +6,6 @@ import { renderArtifactDetailView } from './artifact-detail.js';
 import { renderTierListView } from './tierlist.js';
 import { renderCompareView } from './compare.js';
 import { renderStatsView } from './stats.js';
-import { renderBackupView } from './backup.js';
 
 let currentTab = 'heroes';
 let selectedHeroKey = null;
@@ -188,7 +187,5 @@ function loadCurrentTab() {
     renderCompareView(gridContainer);
   } else if (currentTab === 'stats') {
     renderStatsView(gridContainer);
-  } else if (currentTab === 'backup') {
-    renderBackupView(gridContainer);
   }
 }

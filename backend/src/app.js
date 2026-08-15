@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const heroesRoutes = require('./routes/heroes');
 const artifactsRoutes = require('./routes/artifacts');
@@ -9,8 +10,6 @@ const statsRoutes = require('./routes/stats');
 const backupRoutes = require('./routes/backup');
 
 const app = express();
-
-const path = require('path');
 
 app.use(cors());
 app.use(express.json());
