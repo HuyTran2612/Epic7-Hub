@@ -11,7 +11,7 @@ require('dotenv').config();
 const axios = require('axios');
 const cheerio = require('cheerio');
 const pool = require('../src/config/db');
-const { fetchFribbelsData, fetchE7DataStats } = require('./fribbels-e7data-provider');
+const { fetchFribbelsData, fetchFribbelsArtifacts, fetchE7DataStats } = require('./fribbels-e7data-provider');
 const { getArtifactClassRestriction } = require('./artifact-class-registry');
 
 const OFFICIAL_HERO_URL = 'https://static.smilegatemegaport.com/gameRecord/epic7/epic7_hero.json';
@@ -310,6 +310,9 @@ async function syncArtifactsStage(limit = 0) {
   console.log('[Stage 2/3] Starting Unified Artifact Sync...');
   const isUnlimited = limit === 0 || limit === '0' || limit === 'ALL' || limit === 'all';
 
+  // Load Fribbels artifact class data (authoritative source for class_restriction)
+  const fribbelsArtMap = await fetchFribbelsArtifacts();
+
   let sourceAKeys = [];
   try {
     const listRes = await axios.get('https://epic7db.com/artifacts', {
@@ -337,12 +340,17 @@ async function syncArtifactsStage(limit = 0) {
       if (!artName) return;
       const cleanKey = slugify(artName);
       if (cleanKey) {
+        // Resolve class: Fribbels authoritative, then registry fallback
+        const fbArt = fribbelsArtMap.get((item.name || '').toLowerCase());
+        const class_restriction = (fbArt && fbArt.class_restriction !== 'Common')
+          ? fbArt.class_restriction
+          : getArtifactClassRestriction(cleanKey);
         sourceBMap.set(cleanKey, {
           key_name: cleanKey,
           name: item.name,
           rarity: 5,
-          class_restriction: getArtifactClassRestriction(cleanKey),
-          base_stats: { atk: 15, hp: 60 },
+          class_restriction,
+          base_stats: fbArt ? fbArt.base_stats : { atk: 15, hp: 60 },
           max_stats: { atk: 273, hp: 1080 },
           skill_description: `${item.name} is an artifact in Epic Seven.`,
           skill_max_description: '',
@@ -408,6 +416,14 @@ async function syncArtifactsStage(limit = 0) {
     }
     if (!art.name || art.name === 'null') {
       art.name = key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
+
+    // Resolve class restriction: Fribbels (authoritative) > registry fallback
+    const fribbelsMatch = fribbelsArtMap.get(art.name.toLowerCase());
+    if (fribbelsMatch && fribbelsMatch.class_restriction !== 'Common') {
+      art.class_restriction = fribbelsMatch.class_restriction;
+    } else if (!art.class_restriction || art.class_restriction === 'Common') {
+      art.class_restriction = getArtifactClassRestriction(key);
     }
 
     const keyLower = key.toLowerCase();
