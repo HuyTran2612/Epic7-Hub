@@ -24,6 +24,8 @@ CREATE TABLE heroes (
   full_artwork_url VARCHAR(500),
   description TEXT,
   last_synced_at DATETIME,
+  content_hash VARCHAR(64) NULL,
+  source_flags JSON NULL COMMENT 'list of sources that contributed to this record',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_heroes_element_class (element, class),
@@ -48,6 +50,8 @@ CREATE TABLE artifacts (
   image_url VARCHAR(500),
   full_artwork_url VARCHAR(500),
   last_synced_at DATETIME,
+  content_hash VARCHAR(64) NULL,
+  source_flags JSON NULL COMMENT 'list of sources that contributed to this record',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_artifacts_rarity_class (rarity, class_restriction),
@@ -91,4 +95,20 @@ CREATE TABLE sync_logs (
   records_affected INT DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_sync_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Bảng conflict log khi multi-source bất đồng nhau
+CREATE TABLE IF NOT EXISTS sync_conflicts (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  entity_type ENUM('hero','artifact') NOT NULL,
+  key_name VARCHAR(100) NOT NULL,
+  field_name VARCHAR(80) NOT NULL,
+  source_a VARCHAR(50) NOT NULL,
+  value_a JSON,
+  source_b VARCHAR(50) NOT NULL,
+  value_b JSON,
+  resolution VARCHAR(30) NULL COMMENT 'kept_a | kept_b | merged | ignored',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_conflict_entity (entity_type, key_name),
+  INDEX idx_conflict_unresolved (resolution)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

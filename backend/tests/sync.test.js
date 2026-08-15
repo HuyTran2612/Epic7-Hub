@@ -70,3 +70,54 @@ describe('E7 Codex Data Provider Unit Tests', () => {
   });
 
 });
+
+describe('Multi-Source Mergers, Content Hashing & Limited Detection', () => {
+  const { mergeHero, mergeArtifact, detectLimited, sha256 } = require('../scripts/sync');
+
+  test('detectLimited detects hard-coded and heuristic limited keys', () => {
+    assert.equal(detectLimited('dizzy', 'hero'), true);
+    assert.equal(detectLimited('ae-winter', 'hero'), true);
+    assert.equal(detectLimited('seaside-bellona', 'hero'), true);
+    assert.equal(detectLimited('ras', 'hero'), false);
+
+    assert.equal(detectLimited('3f', 'artifact'), true);
+    assert.equal(detectLimited('daydream-joker', 'artifact'), false);
+  });
+
+  test('sha256 generates deterministic content hashes', () => {
+    const hash1 = sha256({ name: 'Tamarinne', rarity: 5 });
+    const hash2 = sha256({ name: 'Tamarinne', rarity: 5 });
+    const hash3 = sha256({ name: 'Tamarinne', rarity: 4 });
+    assert.equal(hash1, hash2);
+    assert.notEqual(hash1, hash3);
+  });
+
+  test('mergeHero respects field-level priority (Smilegate > epic7db for name/class)', () => {
+    const sourceA = { key_name: 'vildred', name: 'Vildred', element: 'Earth', class: 'Warrior', rarity: 5, base_stats: { atk: 1200 } };
+    const sourceB = { key_name: 'vildred', name: 'Vildred Official', element: 'Earth', class: 'Thief', rarity: 5 };
+    const e7Stats = { atk: 1283, hp: 5299, def: 473, spd: 116 };
+
+    const merged = mergeHero('vildred', sourceA, sourceB, e7Stats, null, null);
+
+    assert.equal(merged.key_name, 'vildred');
+    assert.equal(merged.name, 'Vildred Official');
+    assert.equal(merged.class, 'Thief');
+    assert.ok(merged.content_hash);
+    assert.ok(merged.source_flags.includes('smilegate'));
+    assert.ok(merged.source_flags.includes('epic7db'));
+  });
+
+  test('mergeArtifact respects Fribbels class restriction priority', () => {
+    const sourceA = { key_name: 'alexas-basket', name: "Alexa's Basket", rarity: 5, class_restriction: 'Common' };
+    const sourceB = { key_name: 'alexas-basket', name: "Alexa's Basket", rarity: 5 };
+    const fribbelsArtMap = new Map([
+      ["alexa's basket", { class_restriction: 'Thief', base_stats: { atk: 15, hp: 60 } }]
+    ]);
+
+    const merged = mergeArtifact('alexas-basket', sourceA, sourceB, fribbelsArtMap, null);
+
+    assert.equal(merged.class_restriction, 'Thief');
+    assert.ok(merged.source_flags.includes('fribbels'));
+  });
+});
+

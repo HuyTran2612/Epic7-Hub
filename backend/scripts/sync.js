@@ -1,13 +1,16 @@
 /**
  * Epic7-Hub Unified Data Sync Engine (1-File Pipeline)
  * Handles:
- * 1. Dual-Source Discovery (epic7db.com & Smilegate Official Dataset)
+ * 1. Multi-Source Discovery (epic7db.com & Smilegate Official Dataset)
  * 2. HTML Parsing & Data Extraction
  * 3. E7 Codex High-Res Full HD Pose & Illustration Artwork Resolution
- * 4. Automatic Limited Hero & Artifact Classification
- * 5. Official Epic7DB PvE Tier List Synchronization
+ * 4. Automatic Limited Hero & Artifact Classification (Hard-coded + Heuristics)
+ * 5. Fribbels & E7Data Provider Integration
+ * 6. Field-Level Source Priority Merging & Content Hashing
+ * 7. Official Epic7DB PvE Tier List Synchronization
  */
 require('dotenv').config();
+const crypto = require('crypto');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const pool = require('../src/config/db');
@@ -19,6 +22,11 @@ const OFFICIAL_ARTIFACT_URL = 'https://static.smilegatemegaport.com/gameRecord/e
 const SLEEP_MS = 300;
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+function sha256(data) {
+  const str = typeof data === 'string' ? data : JSON.stringify(data);
+  return crypto.createHash('sha256').update(str).digest('hex');
+}
 
 function slugify(name) {
   if (!name) return '';
@@ -64,6 +72,42 @@ const LIMITED_ARTIFACT_KEYS = new Set([
   'severed-horn-wand', 'sole-consolation', 'star-of-the-deep-sea', 'sweet-miracle',
   'sword-of-holy-light', 'torn-sleeve', 'unfading-memories', 'upgraded-dragon-knuckles', 'wall-of-order'
 ]);
+
+function detectLimited(key, type = 'hero') {
+  if (!key) return false;
+  const keyLower = key.toLowerCase();
+  if (type === 'hero') {
+    if (LIMITED_HERO_KEYS.has(keyLower)) return true;
+    if (keyLower.startsWith('ae-')) return true;
+    if (/^(summer|holiday|seaside|festive|midsummer|ocean|afternoon)/.test(keyLower)) return true;
+    return false;
+  } else if (type === 'artifact') {
+    if (LIMITED_ARTIFACT_KEYS.has(keyLower)) return true;
+    return false;
+  }
+  return false;
+}
+
+async function logConflict(entityType, keyName, fieldName, sourceA, valA, sourceB, valB, resolution) {
+  try {
+    await pool.query(
+      `INSERT INTO sync_conflicts (entity_type, key_name, field_name, source_a, value_a, source_b, value_b, resolution)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        entityType,
+        keyName,
+        fieldName,
+        sourceA,
+        JSON.stringify(valA !== undefined ? valA : null),
+        sourceB,
+        JSON.stringify(valB !== undefined ? valB : null),
+        resolution
+      ]
+    );
+  } catch (err) {
+    // Non-blocking log failure
+  }
+}
 
 /**
  * 1. HTML Parsers for epic7db.com
@@ -168,7 +212,135 @@ async function getE7CodexArtwork(keyName, isArtifact = false) {
 }
 
 /**
- * 3. Hero Sync Stage
+ * 3. Multi-Source Merger Functions
+ */
+function mergeHero(key, sourceA, sourceB, e7Stats, fribbelsData, codexArt) {
+  const name = sourceB?.name || sourceA?.name || key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const element = sourceB?.element || sourceA?.element || 'Fire';
+  const heroClass = sourceB?.class || sourceA?.class || 'Warrior';
+  const rarity = sourceB?.rarity || sourceA?.rarity || 5;
+
+  let baseStats = sourceA?.base_stats && sourceA.base_stats.atk > 0 ? sourceA.base_stats : e7Stats;
+  if (!baseStats || !baseStats.atk) {
+    baseStats = sourceB?.base_stats || { atk: 1000, hp: 5000, def: 500, spd: 110 };
+  }
+
+  const skills = sourceA?.skills && sourceA.skills.length > 0 ? sourceA.skills : [];
+  let description = sourceA?.description || sourceB?.description || `${name} is a ${rarity}-star ${element} ${heroClass} in Epic Seven.`;
+  if (fribbelsData && fribbelsData[name]) {
+    description = `${name} (${fribbelsData[name]}) - Hero in Epic Seven.`;
+  }
+
+  const imageUrl = sourceA?.image_url || sourceB?.image_url || `https://epic7db.com/images/heroes/${key}.webp`;
+  const fullArtworkUrl = codexArt || sourceA?.image_url || sourceB?.image_url || imageUrl;
+  const isLimited = detectLimited(key, 'hero');
+
+  const sourceFlags = [];
+  if (sourceA) sourceFlags.push('epic7db');
+  if (sourceB) sourceFlags.push('smilegate');
+  if (fribbelsData && fribbelsData[name]) sourceFlags.push('fribbels');
+  if (e7Stats) sourceFlags.push('e7data');
+  if (codexArt) sourceFlags.push('e7codex');
+
+  const payload = {
+    key_name: key,
+    name,
+    element,
+    class: heroClass,
+    rarity,
+    is_limited: isLimited,
+    base_stats: baseStats,
+    skills,
+    recommended_builds: [],
+    image_url: imageUrl,
+    full_artwork_url: fullArtworkUrl,
+    description,
+    source_flags: sourceFlags
+  };
+
+  const hashable = {
+    name: payload.name,
+    element: payload.element,
+    class: payload.class,
+    rarity: payload.rarity,
+    is_limited: payload.is_limited,
+    base_stats: payload.base_stats,
+    skills: payload.skills,
+    image_url: payload.image_url,
+    full_artwork_url: payload.full_artwork_url,
+    description: payload.description
+  };
+
+  payload.content_hash = sha256(hashable);
+  return payload;
+}
+
+function mergeArtifact(key, sourceA, sourceB, fribbelsArtMap, codexArt) {
+  const name = sourceB?.name || sourceA?.name || key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const rarity = sourceB?.rarity || sourceA?.rarity || 5;
+
+  const fribbelsMatch = fribbelsArtMap ? fribbelsArtMap.get(name.toLowerCase()) : null;
+  let classRestriction = 'Common';
+  if (fribbelsMatch && fribbelsMatch.class_restriction && fribbelsMatch.class_restriction !== 'Common') {
+    classRestriction = fribbelsMatch.class_restriction;
+  } else if (sourceA && sourceA.class_restriction && sourceA.class_restriction !== 'Common') {
+    classRestriction = sourceA.class_restriction;
+  } else {
+    classRestriction = getArtifactClassRestriction(key);
+  }
+
+  const baseStats = sourceA?.base_stats || fribbelsMatch?.base_stats || { atk: 15, hp: 60 };
+  const maxStats = sourceA?.max_stats || { atk: 273, hp: 1080 };
+
+  const skillDescription = sourceA?.skill_description || sourceB?.skill_description || `${name} is a ${rarity}-star Artifact in Epic Seven.`;
+  const skillMaxDescription = sourceA?.skill_max_description || sourceB?.skill_max_description || '';
+  const recommendedHeroes = sourceA?.recommended_heroes || [];
+
+  const imageUrl = sourceA?.image_url || sourceB?.image_url || `https://epic7db.com/images/artifacts/${key}.webp`;
+  const fullArtworkUrl = codexArt || sourceA?.image_url || sourceB?.image_url || imageUrl;
+  const isLimited = detectLimited(key, 'artifact');
+
+  const sourceFlags = [];
+  if (sourceA) sourceFlags.push('epic7db');
+  if (sourceB) sourceFlags.push('smilegate');
+  if (fribbelsMatch) sourceFlags.push('fribbels');
+  if (codexArt) sourceFlags.push('e7codex');
+
+  const payload = {
+    key_name: key,
+    name,
+    rarity,
+    is_limited: isLimited,
+    class_restriction: classRestriction,
+    base_stats: baseStats,
+    max_stats: maxStats,
+    skill_description: skillDescription,
+    skill_max_description: skillMaxDescription,
+    recommended_heroes: recommendedHeroes,
+    image_url: imageUrl,
+    full_artwork_url: fullArtworkUrl,
+    source_flags: sourceFlags
+  };
+
+  const hashable = {
+    name: payload.name,
+    rarity: payload.rarity,
+    is_limited: payload.is_limited,
+    class_restriction: payload.class_restriction,
+    base_stats: payload.base_stats,
+    max_stats: payload.max_stats,
+    skill_description: payload.skill_description,
+    skill_max_description: payload.skill_max_description,
+    image_url: payload.image_url,
+    full_artwork_url: payload.full_artwork_url
+  };
+
+  payload.content_hash = sha256(hashable);
+  return payload;
+}
+
+/**
+ * 4. Hero Sync Stage
  */
 async function syncHeroesStage(limit = 0) {
   console.log('[Stage 1/3] Starting Unified Hero Sync...');
@@ -223,14 +395,15 @@ async function syncHeroesStage(limit = 0) {
   const combinedKeys = [...new Set([...sourceAKeys, ...sourceBMap.keys()])];
   const targetKeys = isUnlimited ? combinedKeys : combinedKeys.slice(0, parseInt(limit, 10));
 
-  const [existingRows] = await pool.query('SELECT key_name FROM heroes');
-  const existingKeys = new Set(existingRows.map(r => r.key_name));
+  const [existingRows] = await pool.query('SELECT key_name, content_hash FROM heroes');
+  const existingMap = new Map(existingRows.map(r => [r.key_name, r.content_hash]));
 
   const sql = `
     INSERT INTO heroes (
       key_name, name, element, class, rarity, is_limited,
-      base_stats, skills, recommended_builds, image_url, full_artwork_url, description, last_synced_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      base_stats, skills, recommended_builds, image_url, full_artwork_url, description,
+      content_hash, source_flags, last_synced_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ON DUPLICATE KEY UPDATE
       name = VALUES(name),
       element = VALUES(element),
@@ -242,75 +415,82 @@ async function syncHeroesStage(limit = 0) {
       image_url = VALUES(image_url),
       full_artwork_url = VALUES(full_artwork_url),
       description = VALUES(description),
+      content_hash = VALUES(content_hash),
+      source_flags = VALUES(source_flags),
       last_synced_at = NOW()
   `;
 
-  let success = 0, skipped = 0, failed = 0;
+  let newCount = 0, updatedCount = 0, skipped = 0, failed = 0;
 
   for (const key of targetKeys) {
-    if (existingKeys.has(key)) {
-      skipped++;
-      continue;
-    }
-
-    let hero = null;
+    let sourceAData = null;
     try {
       const detailRes = await axios.get(`https://epic7db.com/heroes/${key}`, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
         timeout: 8000
       });
-      hero = parseHeroPage(detailRes.data, key);
+      sourceAData = parseHeroPage(detailRes.data, key);
     } catch (e) {}
 
-    if (!hero && sourceBMap.has(key)) {
-      hero = sourceBMap.get(key);
-    }
+    const sourceBData = sourceBMap.get(key) || null;
 
-    if (!hero) {
+    if (!sourceAData && !sourceBData) {
       failed++;
       continue;
     }
 
-    // Source 4 (E7Data): Enrich stats with Level 60 Max Awaken baseline
-    const e7Stats = await fetchE7DataStats(key, hero.rarity);
-    hero.base_stats = hero.base_stats && hero.base_stats.atk > 0 ? hero.base_stats : e7Stats;
-
-    // Source 2 (Fribbels): Enrich locale translation / metadata if available
+    const e7Stats = await fetchE7DataStats(key, sourceAData?.rarity || sourceBData?.rarity || 5);
     const fribbelsData = await fetchFribbelsData();
-    if (fribbelsData && fribbelsData[hero.name]) {
-      hero.description = `${hero.name} (${fribbelsData[hero.name]}) - Hero in Epic Seven.`;
+    const codexArt = await getE7CodexArtwork(key, false);
+
+    const merged = mergeHero(key, sourceAData, sourceBData, e7Stats, fribbelsData, codexArt);
+
+    if (existingMap.has(key) && existingMap.get(key) === merged.content_hash) {
+      skipped++;
+      continue;
     }
 
-    const keyLower = key.toLowerCase();
-    hero.is_limited = LIMITED_HERO_KEYS.has(keyLower) || keyLower.startsWith('ae-');
-    const hdArt = await getE7CodexArtwork(key, false);
-    hero.full_artwork_url = hdArt || hero.image_url;
+    if (sourceAData && sourceBData) {
+      if (sourceAData.element !== sourceBData.element) {
+        await logConflict('hero', key, 'element', 'epic7db', sourceAData.element, 'smilegate', sourceBData.element, 'kept_smilegate');
+      }
+      if (sourceAData.class !== sourceBData.class) {
+        await logConflict('hero', key, 'class', 'epic7db', sourceAData.class, 'smilegate', sourceBData.class, 'kept_smilegate');
+      }
+    }
 
     await pool.query(sql, [
-      hero.key_name, hero.name, hero.element, hero.class, hero.rarity,
-      hero.is_limited ? 1 : 0,
-      JSON.stringify(hero.base_stats || {}),
-      JSON.stringify(hero.skills || []),
-      JSON.stringify([]),
-      hero.image_url, hero.full_artwork_url, hero.description
+      merged.key_name, merged.name, merged.element, merged.class, merged.rarity,
+      merged.is_limited ? 1 : 0,
+      JSON.stringify(merged.base_stats || {}),
+      JSON.stringify(merged.skills || []),
+      JSON.stringify(merged.recommended_builds || []),
+      merged.image_url, merged.full_artwork_url, merged.description,
+      merged.content_hash,
+      JSON.stringify(merged.source_flags || [])
     ]);
 
-    success++;
+    if (existingMap.has(key)) {
+      updatedCount++;
+    } else {
+      newCount++;
+    }
+
     await delay(SLEEP_MS);
   }
 
-  console.log(`[Stage 1 Complete] Multi-Source Heroes Synced: ${success} new, ${skipped} skipped, ${failed} failed.`);
-  return { success, skipped, failed };
+  const success = newCount + updatedCount;
+  console.log(`[Stage 1 Complete] Multi-Source Heroes Synced: ${newCount} new, ${updatedCount} updated, ${skipped} skipped, ${failed} failed.`);
+  return { success, newCount, updatedCount, skipped, failed };
 }
 
 /**
- * 4. Artifact Sync Stage
+ * 5. Artifact Sync Stage
  */
 async function syncArtifactsStage(limit = 0) {
   console.log('[Stage 2/3] Starting Unified Artifact Sync...');
   const isUnlimited = limit === 0 || limit === '0' || limit === 'ALL' || limit === 'all';
 
-  // Load Fribbels artifact class data (authoritative source for class_restriction)
   const fribbelsArtMap = await fetchFribbelsArtifacts();
 
   let sourceAKeys = [];
@@ -340,7 +520,6 @@ async function syncArtifactsStage(limit = 0) {
       if (!artName) return;
       const cleanKey = slugify(artName);
       if (cleanKey) {
-        // Resolve class: Fribbels authoritative, then registry fallback
         const fbArt = fribbelsArtMap.get((item.name || '').toLowerCase());
         const class_restriction = (fbArt && fbArt.class_restriction !== 'Common')
           ? fbArt.class_restriction
@@ -366,15 +545,16 @@ async function syncArtifactsStage(limit = 0) {
   const combinedKeys = [...new Set([...sourceAKeys, ...sourceBMap.keys()])];
   const targetKeys = isUnlimited ? combinedKeys : combinedKeys.slice(0, parseInt(limit, 10));
 
-  const [existingRows] = await pool.query('SELECT key_name FROM artifacts');
-  const existingKeys = new Set(existingRows.map(r => r.key_name));
+  const [existingRows] = await pool.query('SELECT key_name, content_hash FROM artifacts');
+  const existingMap = new Map(existingRows.map(r => [r.key_name, r.content_hash]));
 
   const sql = `
     INSERT INTO artifacts (
       key_name, name, rarity, is_limited, class_restriction,
       base_stats, max_stats, skill_description, skill_max_description,
-      recommended_heroes, image_url, full_artwork_url, last_synced_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      recommended_heroes, image_url, full_artwork_url,
+      content_hash, source_flags, last_synced_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ON DUPLICATE KEY UPDATE
       name = VALUES(name),
       rarity = VALUES(rarity),
@@ -386,73 +566,68 @@ async function syncArtifactsStage(limit = 0) {
       skill_max_description = VALUES(skill_max_description),
       image_url = VALUES(image_url),
       full_artwork_url = VALUES(full_artwork_url),
+      content_hash = VALUES(content_hash),
+      source_flags = VALUES(source_flags),
       last_synced_at = NOW()
   `;
 
-  let success = 0, skipped = 0, failed = 0;
+  let newCount = 0, updatedCount = 0, skipped = 0, failed = 0;
 
   for (const key of targetKeys) {
-    if (existingKeys.has(key)) {
-      skipped++;
-      continue;
-    }
-
-    let art = null;
+    let sourceAData = null;
     try {
       const detailRes = await axios.get(`https://epic7db.com/artifacts/${key}`, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
         timeout: 8000
       });
-      art = parseArtifactPage(detailRes.data, key);
+      sourceAData = parseArtifactPage(detailRes.data, key);
     } catch (e) {}
 
-    if (!art && sourceBMap.has(key)) {
-      art = sourceBMap.get(key);
-    }
+    const sourceBData = sourceBMap.get(key) || null;
 
-    if (!art) {
+    if (!sourceAData && !sourceBData) {
       failed++;
       continue;
     }
-    if (!art.name || art.name === 'null') {
-      art.name = key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    }
 
-    // Resolve class restriction: Fribbels (authoritative) > registry fallback
-    const fribbelsMatch = fribbelsArtMap.get(art.name.toLowerCase());
-    if (fribbelsMatch && fribbelsMatch.class_restriction !== 'Common') {
-      art.class_restriction = fribbelsMatch.class_restriction;
-    } else if (!art.class_restriction || art.class_restriction === 'Common') {
-      art.class_restriction = getArtifactClassRestriction(key);
-    }
+    const codexArt = await getE7CodexArtwork(key, true);
+    const merged = mergeArtifact(key, sourceAData, sourceBData, fribbelsArtMap, codexArt);
 
-    const keyLower = key.toLowerCase();
-    art.is_limited = LIMITED_ARTIFACT_KEYS.has(keyLower);
-    const hdArt = await getE7CodexArtwork(key, true);
-    art.full_artwork_url = hdArt || art.image_url;
+    if (existingMap.has(key) && existingMap.get(key) === merged.content_hash) {
+      skipped++;
+      continue;
+    }
 
     await pool.query(sql, [
-      art.key_name, art.name, art.rarity,
-      art.is_limited ? 1 : 0,
-      art.class_restriction || 'Common',
-      JSON.stringify(art.base_stats || {}),
-      JSON.stringify(art.max_stats || {}),
-      art.skill_description || '',
-      art.skill_max_description || '',
-      JSON.stringify(art.recommended_heroes || []),
-      art.image_url, art.full_artwork_url
+      merged.key_name, merged.name, merged.rarity,
+      merged.is_limited ? 1 : 0,
+      merged.class_restriction || 'Common',
+      JSON.stringify(merged.base_stats || {}),
+      JSON.stringify(merged.max_stats || {}),
+      merged.skill_description || '',
+      merged.skill_max_description || '',
+      JSON.stringify(merged.recommended_heroes || []),
+      merged.image_url, merged.full_artwork_url,
+      merged.content_hash,
+      JSON.stringify(merged.source_flags || [])
     ]);
 
-    success++;
+    if (existingMap.has(key)) {
+      updatedCount++;
+    } else {
+      newCount++;
+    }
+
     await delay(SLEEP_MS);
   }
 
-  console.log(`[Stage 2 Complete] Artifacts Synced: ${success} new, ${skipped} skipped, ${failed} failed.`);
-  return { success, skipped, failed };
+  const success = newCount + updatedCount;
+  console.log(`[Stage 2 Complete] Artifacts Synced: ${newCount} new, ${updatedCount} updated, ${skipped} skipped, ${failed} failed.`);
+  return { success, newCount, updatedCount, skipped, failed };
 }
 
 /**
- * 5. PvE Tier List Sync Stage
+ * 6. PvE Tier List Sync Stage
  */
 async function syncPvETierListStage() {
   console.log('[Stage 3/3] Scraping Official PvE Tier List from epic7db.com/tier-list...');
@@ -533,7 +708,7 @@ async function runUnifiedSync() {
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     const totalRecords = heroResult.success + artifactResult.success + pveResult.count;
-    const message = `Unified Sync Completed in ${duration}s. Heroes: ${heroResult.success}, Artifacts: ${artifactResult.success}, PvE Ratings: ${pveResult.count}.`;
+    const message = `Unified Sync Completed in ${duration}s. Heroes: ${heroResult.success} (${heroResult.newCount} new, ${heroResult.updatedCount} updated), Artifacts: ${artifactResult.success} (${artifactResult.newCount} new, ${artifactResult.updatedCount} updated), PvE Ratings: ${pveResult.count}.`;
 
     await pool.query(
       'INSERT INTO sync_logs (type, status, message, records_affected) VALUES (?, ?, ?, ?)',
@@ -556,4 +731,13 @@ if (require.main === module) {
   runUnifiedSync();
 }
 
-module.exports = { runUnifiedSync, parseHeroPage, parseArtifactPage, getE7CodexArtwork };
+module.exports = {
+  runUnifiedSync,
+  parseHeroPage,
+  parseArtifactPage,
+  getE7CodexArtwork,
+  mergeHero,
+  mergeArtifact,
+  detectLimited,
+  sha256
+};
