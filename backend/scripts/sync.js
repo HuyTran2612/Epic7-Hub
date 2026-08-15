@@ -21,12 +21,20 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 function slugify(name) {
   if (!name) return '';
-  return name
+  let slug = name
     .toLowerCase()
-    .replace(/-and-/g, '-')
+    .replace(/&/g, 'and')
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-');
+
+  const ALIASES = {
+    'baal-sezan': 'baal-and-sezan',
+    'sage-baal-sezan': 'sage-baal-and-sezan',
+    'midsummer-charlotte': 'summer-break-charlotte'
+  };
+
+  return ALIASES[slug] || slug;
 }
 
 // Full List of 48 Limited Heroes
@@ -331,7 +339,9 @@ async function syncArtifactsStage(limit = 0) {
     const backupRes = await axios.get(OFFICIAL_ARTIFACT_URL, { timeout: 8000 });
     const artList = backupRes.data.zh || backupRes.data.en || backupRes.data.ko || backupRes.data || [];
     artList.forEach(item => {
-      const cleanKey = slugify(item.name || item.code);
+      const artName = item.name || item.code;
+      if (!artName) return;
+      const cleanKey = slugify(artName);
       if (cleanKey) {
         sourceBMap.set(cleanKey, {
           key_name: cleanKey,
@@ -401,6 +411,9 @@ async function syncArtifactsStage(limit = 0) {
     if (!art) {
       failed++;
       continue;
+    }
+    if (!art.name || art.name === 'null') {
+      art.name = key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
 
     const keyLower = key.toLowerCase();
