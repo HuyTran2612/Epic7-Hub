@@ -150,10 +150,20 @@ function parseHeroPage(html, urlKey) {
   const description = metaDesc || `${name} is a ${rarity}-star ${element} ${heroClass} in Epic Seven.`;
 
   const skills = [];
-  $('h2, h3, h4').each((_, elem) => {
-    const text = $(elem).text().trim();
-    if (text && !text.includes('Stats') && !text.includes('Builds') && text.length < 60) {
-      skills.push({ name: text });
+  let inSkillsSection = false;
+  $('body *').each((_, el) => {
+    if (el.name === 'h2') {
+      const text = $(el).text().trim().toLowerCase();
+      if (text.includes("skills")) {
+        inSkillsSection = true;
+      } else if (inSkillsSection) {
+        inSkillsSection = false;
+      }
+    } else if (inSkillsSection && el.name === 'h3') {
+      const name = $(el).text().trim();
+      if (name && !name.includes('Skill Enhancement') && !name.includes('Build') && !name.includes('Rate')) {
+        skills.push({ name });
+      }
     }
   });
 
@@ -369,7 +379,7 @@ async function syncHeroesStage(limit = 0) {
   try {
     const backupRes = await axios.get(OFFICIAL_HERO_URL, { family: 4, timeout: 8000 });
     const heroList = backupRes.data.zh || backupRes.data.en || backupRes.data.ko || backupRes.data || [];
-    const jobMap = { warrior: 'Warrior', knight: 'Knight', thief: 'Thief', ranger: 'Ranger', mage: 'Mage', soulweaver: 'Soul Weaver' };
+    const jobMap = { warrior: 'Warrior', knight: 'Knight', thief: 'Thief', assassin: 'Thief', ranger: 'Ranger', mage: 'Mage', soulweaver: 'Soul Weaver', manauser: 'Soul Weaver' };
     const elemMap = { fire: 'Fire', ice: 'Ice', wind: 'Earth', light: 'Light', dark: 'Dark' };
 
     heroList.forEach(item => {
